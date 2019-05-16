@@ -12,7 +12,8 @@ import logging
 
 
 def main(argv):    
-    helpmsg = 'hash.py -i <inputfile> -o <outputfile>'
+    usageMsg = 'sha3.py [-o <outputFile>] [-h] [-l <hashLength>] <[-i <inputFile>] | [STDIN] | [message]>\n'
+    helpMsg = 'Prints SHA-3 hash value of given input. By default 224-bit hashes are used. Other possible lengths are 256, 384 or 512.\n Possible input is file (specified by one of command options), STDIN or string specified as last command argument.\nBy default output is printed to STDOUT encoded as hexadecimal string. It can also be saved into given output file.'
     inputfile = ''
     readFromFile = False
     writeToFile = False
@@ -23,12 +24,13 @@ def main(argv):
     try:
         opts, args = getopt(argv, "hi:o:l:", ["input=", "output=", "length="])
     except GetoptError:
-        print(helpmsg)
+        print(usageMsg)
         exit(2);
 
     for opt, arg in opts:
         if opt == '-h':
-            print(helpmsg)
+            print(usageMsg)
+            print(helpMsg)
             exit()
         elif opt in ("-i", "--input"):
             inputfile = arg
@@ -51,16 +53,16 @@ def main(argv):
             
     try:
         logging.debug("Input message = {}".format(inputText))
-        digest = keccak.SHA3(inputText.encode(), hashLength)
+        digest = keccak.sha3(inputText.encode(), hashLength)
     except ValueError as e:
         exit("hashing failed: {}".format(str(e)))
         
     if writeToFile:
         with open(outputfile, 'wb') as f:
-            f.write(codecs.decode(codecs.encode(digest, 'hex')), 'utf-8')
+            f.write(digest)
     else:
         # codecs.encode needed for version before python3.5
-        print(digest.hex())
+        print(codecs.decode(codecs.encode(digest, 'hex'), 'utf-8'))
     
     
 if __name__ == '__main__':

@@ -1,0 +1,173 @@
+\documentclass[titlepage,a4paper,12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[czech]{babel}
+\usepackage[numbers]{natbib}
+\usepackage{graphicx}
+\usepackage[final]{pdfpages}
+\usepackage[hyphens]{url}
+\usepackage{float}
+\usepackage{listings}
+
+\lstset{language=C}
+
+\begin{document}
+
+\begin{titlepage}
+\centering
+\includegraphics[scale=1.3]{logo.pdf}\par\vspace{1cm}
+{\Huge Jednoduchý stemmer \par}
+{\LARGE Dokumentace semestrální práce KIV/PC \par}
+\vfill
+
+\centering
+\begin{tabular}{ll}
+    Jméno: & Roman Kalivoda \\
+    E-mail: & kalivoda@students.zcu.cz \\
+    os. číslo: & A16B0049P \\
+    datum: & 7.1.2019 \\
+\end{tabular}
+\end{titlepage}
+
+\tableofcontents\thispagestyle{empty}\setcounter{page}{0}
+
+
+
+\includepdf[pages=1,pagecommand={\section{Zadání}\setcounter{page}{1}},offset=0 2cm]{zadani.pdf}
+\includepdf[pages=2,pagecommand={},offset=0 8cm]{zadani.pdf}
+
+\section{Analýza úlohy}
+\subsection{Motivace - Stemming}
+Stemming  je jednou ze základních úloh v oblasti zpracování přirozeného jazyka. Cílem této úlohy je zredukovat ohebná slova pouze do tvaru jejich slovního kmene, případně kořene. Tím lze vstupní korpus roztřídit do skupin slov podobného významu, čehož lze využít pro získávání informací například ve vyhledávačích. Pro zhodnocení efektivity algoritmu lze využít  metriky zvané overstemming a understemming \cite{wiki:stemming}. Overstemming označuje chybu, při které zkoumaný algoritmus přiřazuje dvěma různým slovům stejný kořen když tomu tak být nemá. Naopak understemming označuje chybu, při které jsou dvěma tvarům jednoho slova přiřazeny dva různé kořeny. K řešení úlohy existuje několik možných přístupů. Problémem je, že každý přístup může fungovat rozdílně podle zpracovávaného jazyka, čímž se zvyšuje složitost celé úlohy.\par
+Naivní přístup využívá převodní tabulku nebo slovník, ve kterém je pro každé slovo uveden tvar slovního kořene. Tato převodní tabulka musí být dána programu předem, případně je možné vytvořit variantu, kde je převodní tabulka částečně doplňována rozvinutými tvary základního tvaru slova \cite{wiki:stemming}. Pochopitelně tabulka musí být vytvořena pro každý použitý jazyk. Tento přístup, ale selhává pokud dané slovo v tabulce chybí nebo i pokud je v tabulce uveden jiný tvar daného slova. To je problém především u jazyků s vysokou ohebností slov, kde může pro jedno slovo existovat enormní počet různých tvarů a převodní tabulka bude příliš velká. \par
+Trochu odlišný je přístup, který je implementován v této práci. Místo tabulky vztahů mezi jednotlivými slovy a kořeny je vytvořena databáze co největšího počtu kořenů slov daného jazyka a za použití různých korekčních pravidel (například minimální délky kořene, aplikováním váhových funkcí) se algoritmus snaží najít optimální shodu mezi zpracovávaným slovem a kořeny z databáze. \par
+Dalším použitelným přístupem je použití pravidel pro odtrhávání přípon nebo předpon. Místo převodní tabulky obsahující vztahy mezi unikátními tvary slova a slovním kořenem je využit seznam gramatických pravidel, které definují například seznam slovních koncovek, které mohou být ze slova odstraněny (Obr. \ref{fig:porter}). 
+
+\begin{figure}[ht]
+\centering
+\includegraphics[scale=0.7]{porter.png}
+\caption{Ukázka možné definice pravidel}
+\label{fig:porter}
+\end{figure}
+
+Pro využití v anglickém jazyce je jedním z nejznámějších příkladů takového přístupu Porter stemmer. Tento algoritmus v pěti fázích redukuje zpracovávané slovo. Pro každou fázi jsou vybírána pravidla podle jiného klíče, často je například využívána takzvaná míra slova, která představuje počet slabik slova \cite{0521865719}. Výhodou tohoto přístupu oproti naivním metodám je, že pravidel je výrazně méně než položek v převodní tabulce. Tento přístup lze ale efektivně použít pouze pro části jazyka, pro které jsou pravidla jasně definovaná a nevyskytuje se příliš výjimek.
+
+\subsection{Získání slov ze vstupního textu}
+Prvním problémem této úlohy je získání jednotlivých slov z textu v dané znakové sadě. Pro dosažení je potřeba rozlišit v textu písmena od bílých znaků a zbylých symbolů. Hlavní potíží je neznalost znakové sady, kterou vstupní soubor používá. Ačkoliv jsou sice tyto znakové sady (Windows-1250, Windows-1252, ISO-8859-1, ISO-8859-2,...) z velké části identické, pro některé znaky národních abeced je v alternativních tabulkách bílý znak nebo symbol (Tabulka \ref{tab:enc}). Tím může dojít při odstraňování nepísmenných znaků k chybnému rozpoznání slova. Pro zachování úplné správnosti rozpoznání slov je tedy nutné používat pouze jednu znakovou sadu, na kterou je program nastavený, nebo zavést možnost volitelnosti použité znakové sady.
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{|l|l|l|l|l|}
+\hline
+Dec & Hex & Windows-1252                       & windows-1250 & ISO-8859-1  \\
+\hline
+141 & 8D  & {\color[HTML]{000000} (nevyužito)} & Ť            & (nevyužito) \\
+\hline
+157 & 9D  & (nevyužito)                        & ť            & (nevyužito) \\
+\hline
+190 & BE  &   ¾                               & ľ            &  ¾   \\
+\hline
+\end{tabular}
+\caption{Ukázka nekompatibilních znaků v různých znakových sadách}
+\label{tab:enc}
+\end{table}
+
+Další nepřesnost může způsobit znak apostrofu u zkrácených tvarů slov ve vstupním textu. Při jeho odstranění je část za apostrofem chybně interpretována jako validní slovo.
+
+\subsection{struktury pro uložení frekvenčního slovníku}\subsubsection{Hashmap}
+Jedná se o datovou strukturu, která udržuje hodnoty přístupné pomocí klíče. K tomu se využívá takzvaná hashovací funkce, která z klíče určí pozici v poli, na které je uložena správná hodnota. Problémem této struktury je typicky možná kolize hodnot hashovací funkce pro různé klíče. Je proto zapotřebí důmyslně vybrat vhodnou funkci, čímž se zajistí optimální rozložení prvků v poli a minimalizuje se pravděpodobnost kolize. Zbylé kolize lze vyřešit například zřetězením prvků se stejnou hodnotou hash funkce do spojového seznamu. Časová složitost základních operací nad touto strukturou je lineární v nejhorším případě.
+
+\subsubsection{Trie}
+Tato datová struktura umožňuje uchovávat páry klíč - hodnota, kde klíčem je řetězec složený z určité množiny znaků, v našem případě řetězec znaků abecedy. Trie je speciální varianta datové struktury strom. Základními operacemi nad touto strukturou jsou operace přidání prvku, ověření existence prvku a smazání prvku. Časová složitost přidání nového prvku i ověření existence  je \(O(l)\), kde \(l\) je délka zpracovávaného slova. To je výhodnější než binární vyhledávací strom nebo struktura hashmap \cite{gfg:trie}. Výhodou oproti struktuře Hashmap je, že není potřeba vypočítávat hashovací funkci a nedochází ke kolizím. Lepší časová složitost je zaplacena vyšším nárokem na paměť. \par
+Rozhodl jsem se použít tuto strukturu pro její rychlost a poměrně jednoduchou implementaci s ostatními použitými algoritmy.
+
+\subsection{Problém nejdelšího společného podřetězce}
+K určení kořenů potřebujeme najít vhodné řešení úlohy nalezení nejdelšího společného podřetězce dvou řetězců.
+\subsubsection{Sufixový strom}
+Optimální řešení k danému problému je sestavení sufixového stromu ze zpracovávaných podřetězců. Sufixový strom je speciální varianta struktury trie, která obsahuje všechny sufixy daných řetězců. Ve výsledném stromu určíme nejdelší společný podřetězec jako nejhlouběji se vyskytující prvek, který obsahuje jako potomky listové prvky z obou řetězců. Sestavení sufixového stromu je složitosti \(O(m + n)\), což jsou délky použitých řetězců a vyhledání nejdelšího podřetězce je také složitosti \(O(m + n)\). Na obrázku \ref{fig:sufftree} je ukázkové schéma sufixového stromu.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[scale=0.4]{sufftree.png}
+\caption{Sufixový strom pro řetězce X = "xabxa", Y = "babxba"}
+\label{fig:sufftree}
+\end{figure}
+
+\subsubsection{Algoritmus dynamického programování}
+Druhou možností jak najít nejdelší společný podřetězec je použití dynamického programování. Je vytvořena matice, do které jsou postupnou iterací ukládány délky shodujících se podřetězců a na konci jsou zpětným chodem nalezeny nejdelší společné podřetězce. Časová složitost tohoto přístupu je \(O(m \times n)\). \par
+V této práci jsem se rozhodl implementovat hledání nejdelšího společného podřetězce pomocí algoritmu dynamického programování kvůli jednoduchosti implementace a předchozí znalosti a lepšímu porozumění algoritmu.
+
+\section{Popis implementace}
+Kód programu je rozdělen do několika modulů:
+\begin{enumerate}
+    \item main.c
+    \item trie.c
+    \item list.c
+\end{enumerate}
+
+\subsection{main.c}
+Zde se nachází většina logiky programu. Ve funkci \texttt{main} jsou nejprve vyhodnoceny parametry získané z příkazové řádky. Ověří jejich správnost a otevře potřebné soubory. Poté zavolá metodu \texttt{exec\_learn\_mode} nebo \texttt{exec\_processing\_mode} podle předaných parametrů. \par
+V metodě \texttt{exec\_learn\_mode} je voláním metody \texttt{get\_words\_from\_file} získána struktura trie obsahující frekvenční slovník slov ze vstupního souboru. Ta je předána při volání funkci \texttt{find\_stems}, která projde všechna načtená slova a voláním funkce \texttt{stem}, která obsahuje algoritmus dynamického programování pro nalezení nejdelšího společného podřetězce, nalezne kořeny. Ty jsou pak voláním funkce \texttt{fdump\_trie} zapsány do výstupního souboru a program je ukončen. \par
+Metoda \texttt{get\_words\_from\_file} načte celý obsah vstupního souboru do paměti a tam jsou ze souboru extrahována jednotlivá slova opakovaným voláním knihovní funkce \texttt{strtok}, které je v argumentu předána konstanta obsahující všechny nepísmenné znaky z kódování Windows-1250. Do trie jsou ukládany pouze slova delší nebo stejně dlouhé jako hodnota volitelného parametru msl. \par
+Funkce \texttt{find\_stems} převede slova z trie do spojového seznamu pro rychlejší iteraci a ve dvou cyklech tento seznam prochází a volá funkci \texttt{stem}. \par
+Funkce \texttt{stem} si alokuje paměť pro vytvoření matice délek společných podřetězců a v cyklech ji postupně vyplní. Ve zpětném chodu jsou pak nalezeny nejdelší společné podřetězce a vloženy do nové trie struktury. \par
+Při spuštění v módu zpracování slov je z hlavní funkce volána funkce \texttt{exec\_processing\_mode}, které jsou předány získané parametry. Tato funkce nejprve voláním funkce \texttt{read\_stems} načte kořeny delší nebo stejně dlouhé jako volitelný parametr msf. Poté pomocí funkce \texttt{split\_sequence} rozdělí případnou sekvenci více slov a uloží je do spojového seznamu. Pak je pro všechna slova pomocí knihovní funkce \texttt{strstr} nalezen kořen a vypsán na standardní výstup. \par
+Funkce \texttt{read\_stems} prochází databázi kořenů, která se nachází v souboru stems.dat, pomocí funkce \texttt{fscanf} po řádcích a pokud je soubor ve správném formátu ukládá vyhovující kořeny do spojového seznamu \texttt{stemlist}. \par
+Funkce \texttt{split\_sequence} funguje podobně jako získávání slov ve funkci \texttt{get\_words\_from\_file}, používá knihovní funkci \texttt{strtok} a nalezená slova ukládá do spojového seznamu \texttt{wordlist}. \par
+Dále se v souboru main.c vyskytují pomocné funkce pro vrácení alokovaných zdrojů a uzavření souborů.
+
+\subsection{trie.c}
+Tento zdrojový soubor obsahuje funkce potřebné pro práci s datovou strukturou trie.
+\texttt{create\_trie}: Tato funkce alokuje zdroje na nový uzel struktury a vrátí ji jako svoji návratovou hodnotu, pokud se alokace podařila.\par
+\texttt{insert\_to\_trie}: Vloží nové slovo do struktury, pokud je potřeba, vytvoří nové uzly voláním \texttt{create\_trie}. \par
+\texttt{fdump\_trie}: Iteruje rekurzivně přes předanou strukturu metodou preorder a vypisuje nalezená slova do předaného souboru.\par
+\texttt{destroy\_trie}: Prochází rekurzivně předanou strukturu a vrací alokovanou paměť, dokud nesmaže celou trie.\par
+\texttt{to\_list}: Konvertuje předanou trie do spojového seznamu pomocí rekurzivního procházení stromu.\par
+\texttt{ptrieerr}: vypíše chybovou hlášku pro předaný chybový kód. Možné jsou konstanty \footnote{Tyto konstanty jsou definovány v hlavičkovém souboru sistem.h. Dále tam jsou ještě konstanty ERR\_INVAL\_ARGS a ERR\_IO\_ERROR používané v souboru main.c jako návratové hodnoty některých funkcí.}:
+
+\begin{enumerate}
+    \setcounter{enumi}{-1}
+    \item ERR\_NO\_ERROR
+    \item ERR\_GEN\_ERROR
+    \item ERR\_NULL
+    \item ERR\_OUT\_OF\_MEMORY
+\end{enumerate}
+
+\subsection{list.c}
+Zde jsou funkce potřebné pro práci se spojovým seznamem znakových řetězců.\par
+\texttt{destroy}: Prochází předanou strukturu a vrací alokovanou paměť, dokud nesmaže celý spojový seznam.\par
+\texttt{push}: Vloží nový řetězec do seznamu.\par
+\texttt{fdump}: Vypíše obsah předaného seznamu do zadaného souboru.\par
+\texttt{flip}: Provede otočení celého spojového seznamu. Argumentem je odkaz na hlavu seznamu, návratovou hodnotou je odkaz na novou hlavu.\par
+
+Dále jsou součástí programu hlavičkové soubory sistem.h, trie.h a list.h, které obsahují prototypy výše popsaných funkcí, některé konstanty používané v programu a struktury node (Listing 1) a trienode (Listing 2):
+
+\begin{lstlisting}[caption={Definice struktury node},captionpos=b]
+typedef struct thenode {
+	unsigned char *val;
+	struct thenode *next;
+} node;
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Definice struktury trienode},captionpos=b]
+typedef struct thetrienode {
+	struct thetrienode *subtries[CHARSET_LEN];
+	int frequency[CHARSET_LEN];
+} trienode;
+\end{lstlisting}
+
+\section{Uživatelská příručka}
+\subsection{Linux}
+V prostředí linuxu otevřete terminál, a pokud se nenacházíte v adresáři se zdrojovými soubory, přesuňte se tam. Překlad zdrojových souborů spustíte příkazem \texttt{make}, případně \texttt{make all}. Pokud překlad proběhl správně, měl by se v adresáři nacházet souboru sistem.exe. Z adresáře můžete vyčistit přeložené soubory zavoláním \texttt{make clean}.
+
+\subsection{Windows}
+V prostředí OS windows můžete pro překlad využít Vyvojářské nástroje společnosti Microsoft. Pokud máte daný balík nainstalován, otevřete vývojářskou příkazovou řádku například z nabídky start. Přesuňte se do adresáře programu. Program můžete přeložit zavoláním příkazu \texttt{nmake /f makefile.win}. Z adresáře můžete vyčistit přeložené soubory zavoláním \texttt{nmake /f makefile.win clean}.
+
+\subsection{Použití} Program můžete poprvé spustit příkazem \texttt{sistem.exe <inputfile> [-msl=<stemLength> ]}, kde symbol <inputfile> zaměníte za soubor, ze kterého se má vytvořit databáze kořenů. Můžete navíc specifikovat parametr msl, který určuje minimální přípustnou délku kořene. Jestli program provedl požadovanou akci, poznáte když se program ukončí s nulovou návratovou hodnotou. Pokud dojde při běhu k chybě, návratová hodnota bude různá od nuly a na chybový proud bude vypsán důvod selhání. \par
+Mód zpracování slov spustíte příkazem \texttt{./sistem.exe <["]sequence["]> [-msf=<freq> ]}. Symbol \texttt{<["]sequence["]>} nahradíte sekvencí slov, kterým chcete určit kořen. Můžete opět specifikovat volitelný parametr msf, který určí minimální výskyt kořene v databázi a tím můžete zpřesňovat výsledek. Po zadání příkazu se začnou vyhledávat kořeny zadaných slov a zobrazí se na standardním výstupu.
+
+\section{Závěr}
+Program využívá pro nalezení kořenů algoritmus dynamického programování, jehož časová složitost je \(O(m \times n)\), kde \(m\) a \(n\) jsou délky zkoumaných řetězců. Tato složitost lze zlepšit nahrazením tohoto algoritmu sufixovým stromem. Pro uložení korpusu dat využívá strukturu trie, ta je ale později konvertována do spojového seznamu, kvůli vyšší časové složitosti získání dalšího prvku z této struktury a složitost je \(O(n^2)\). Doba běhu by se tedy dala optimalizovat přepracováním, tak aby byla trie skutečně využita. 
+
+\bibliographystyle{plainnat}
+ \bibliography{references}
+\end{document}

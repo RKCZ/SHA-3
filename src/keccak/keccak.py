@@ -10,11 +10,12 @@ ROUND_COUNT = 24
 
 BYTE_1 = 0x80
 
+
 def rotateLeft(a, n):
     return ((a >> (INT_SIZE - (n % INT_SIZE))) + (a << (n % INT_SIZE))) % (1 << INT_SIZE)
 
 
-def KeccakRound(lanes):
+def keccakRound(lanes):
     rc = 1
     for _ in range(ROUND_COUNT):
         C = [lanes[x][0] ^ lanes[x][1] ^ lanes[x][2] ^ lanes[x][3] ^ lanes[x][4] for x in range(5)]
@@ -38,21 +39,23 @@ def KeccakRound(lanes):
                 lanes[0][0] = lanes[0][0] ^ (1 << ((1 << j) - 1))
     return lanes
 
+
 # load bits in lane from state into single byte
 def load(b):
     return sum((b[i] << (BYTE_SIZE * i)) for i in range(BYTE_SIZE))
+
 
 # convert bits from single byte into list
 def store(a):
     return list((a >> (BYTE_SIZE * i)) % 256 for i in range(BYTE_SIZE))
 
 
-def KeccakF(state):
+def keccakF(state):
     # create lanes from received state
     lanes = [[load(state[BYTE_SIZE * (x + 5 * y):BYTE_SIZE * (x + 5 * y) + BYTE_SIZE]) for y in range(5)] for x in range(5)]
     
     # run permutations on lanes
-    lanes = KeccakRound(lanes)
+    lanes = keccakRound(lanes)
     state = bytearray(200)
     
     # put permutated lanes back into state
@@ -62,7 +65,7 @@ def KeccakF(state):
     return state
 
 
-def KeccakSponge(capacity, inputBytes, delimitedSuffix, outputByteLen, bitLength=1600):
+def keccakSponge(capacity, inputBytes, delimitedSuffix, outputByteLen, bitLength=1600):
     rate = bitLength - capacity
     bitLengthInBytes = bitLength // BYTE_SIZE
     rateInBytes = rate // BYTE_SIZE
@@ -74,7 +77,7 @@ def KeccakSponge(capacity, inputBytes, delimitedSuffix, outputByteLen, bitLength
     blockSize = 0
     
     if (((rate % BYTE_SIZE) != 0)):
-        raise ValueError("rate not divisible into bytes")
+        raise ValueError("rate {} is not divisible into bytes".format(rate))
     inputOffset = 0
     # absorb
     while(inputOffset < len(inputBytes)):
@@ -85,19 +88,19 @@ def KeccakSponge(capacity, inputBytes, delimitedSuffix, outputByteLen, bitLength
             # xor current state with absorbing message
             state[i] = state[i] ^ inputBytes[i + inputOffset]
             
-            #increment offset
+            # increment offset
         inputOffset = inputOffset + blockSize
         if (blockSize == rateInBytes):
-            state = KeccakF(state)
+            state = keccakF(state)
             blockSize = 0
-    # add hash specific padding to the end of input
+    # add sha3 specific padding to the end of input
     state[blockSize] = state[blockSize] ^ delimitedSuffix
     
-    # hash remaining input
+    # sha3 remaining input
     if (blockSize == (rateInBytes - 1)):
-        state = KeccakF(state)
+        state = keccakF(state)
     state[rateInBytes - 1] = state[rateInBytes - 1] ^ BYTE_1
-    state = KeccakF(state)
+    state = keccakF(state)
     
     # squeeze output of given length
     while(outputByteLen > 0):
@@ -105,15 +108,15 @@ def KeccakSponge(capacity, inputBytes, delimitedSuffix, outputByteLen, bitLength
         outputBytes = outputBytes + state[0:blockSize]
         outputByteLen = outputByteLen - blockSize
         if (outputByteLen > 0):
-            state = KeccakF(state)
+            state = keccakF(state)
             
     return outputBytes
 
 
-def SHA3(inputBytes, hashLength = 224):
-    # check received hash length is supported
+def sha3(inputBytes, hashLength=224):
+    # check received sha3 length is supported
     validLengths = [224, 256, 384, 512]
     if hashLength not in validLengths:
-        raise ValueError("{} is not a supported hash length".format(hashLength))
+        raise ValueError("{} is not a supported sha3 length".format(hashLength))
     
-    return KeccakSponge((hashLength * 2), inputBytes, 0x06, (hashLength // BYTE_SIZE))
+    return keccakSponge((hashLength * 2), inputBytes, 0x06, (hashLength // BYTE_SIZE))
