@@ -40,14 +40,17 @@ def main(argv):
             outputfile = arg
             writeToFile = True
         elif opt in ("-l", "--length"):
-            hashLength = arg
+            try:
+                hashLength = int(arg)
+            except ValueError as e:
+                exit(str(e))
 
     if readFromFile:    
         with open(inputfile, 'rb') as f:
-            inputText = f.read().decode()
+            inputText = codecs.decode(f.read())
     else:
         if len(args) < 1:
-            inputText = stdin.read().decode()
+            inputText = stdin.read()
         else:
             inputText = args[0]
             
