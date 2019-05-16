@@ -1,3 +1,9 @@
+#! /usr/bin/python
+'''
+Created on 10 May 2019
+
+@author: kalivoda
+'''
 BYTE_SIZE = 8
 INT_SIZE = 64
 ROUND_COUNT = 24
@@ -104,7 +110,7 @@ def KeccakSponge(capacity, inputBytes, delimitedSuffix, outputByteLen, bitLength
     return outputBytes
 
 
-def SHA3(inputBytes, hashLength):
+def SHA3(inputBytes, hashLength = 224):
     # check received hash length is supported
     validLengths = [224, 256, 384, 512]
     if hashLength not in validLengths:

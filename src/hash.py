@@ -4,63 +4,66 @@ Created on 10 May 2019
 
 @author: kalivoda
 '''
-from sys import argv, exit
+from sys import argv, exit, stdin
 from getopt import getopt, GetoptError
 from keccak import keccak
 import codecs
+import logging
+
 
 def main(argv):    
-    helpmsg = 'digest.py -i <inputfile> -o <outputfile>'
-    inputBytes = ''
+    helpmsg = 'hash.py -i <inputfile> -o <outputfile>'
     inputfile = ''
     readFromFile = False
     writeToFile = False
     outputfile = ''
+    inputText = ''
+    hashLength = 224
+
     try:
-        opts, args = getopt(argv, "hi:o:", ["input=", "output="])
+        opts, args = getopt(argv, "hi:o:l:", ["input=", "output=", "length="])
     except GetoptError:
         print(helpmsg)
         exit(2);
+
     for opt, arg in opts:
         if opt == '-h':
             print(helpmsg)
             exit()
         elif opt in ("-i", "--input"):
             inputfile = arg
-            print("reading from {}".format(inputfile))
             readFromFile = True
             
         elif opt in ("-o", "--output"):
             outputfile = arg
-            print("printing output to {}".format(outputfile))
             writeToFile = True
-    if len(args) < 1:
-        exit("missing args!")
+        elif opt in ("-l", "--length"):
+            hashLength = arg
 
-    try:
-        hashLength = int(args[0])
-    except ValueError:
-        exit("first argument must be a valid hash length")
-    
     if readFromFile:    
         with open(inputfile, 'rb') as f:
-            inputBytes = f.read()
+            inputText = f.read().decode()
     else:
-        if len(args) < 2:
-            exit("missing args!")
-        inputBytes = args[1].encode()
+        if len(args) < 1:
+            inputText = stdin.read().decode()
+        else:
+            inputText = args[0]
+            
     try:
-        digest = keccak.SHA3(inputBytes, hashLength)
+        logging.debug("Input message = {}".format(inputText))
+        digest = keccak.SHA3(inputText.encode(), hashLength)
     except ValueError as e:
         exit("hashing failed: {}".format(str(e)))
+        
     if writeToFile:
         with open(outputfile, 'wb') as f:
-            f.write(digest)
+            f.write(codecs.decode(codecs.encode(digest, 'hex')), 'utf-8')
     else:
-	# codecs.encode needed for version before python3.5
-        print(str(codecs.encode(digest,'hex')))
+        # codecs.encode needed for version before python3.5
+        print(digest.hex())
     
     
 if __name__ == '__main__':
+    logging.basicConfig(level='WARNING')
     main(argv[1:])
             
