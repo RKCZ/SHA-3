@@ -14,18 +14,18 @@ def KeccakRound(lanes):
         C = [lanes[x][0] ^ lanes[x][1] ^ lanes[x][2] ^ lanes[x][3] ^ lanes[x][4] for x in range(5)]
         D = [C[(x + 4) % 5] ^ rotateLeft(C[(x + 1) % 5], 1) for x in range(5)]
         lanes = [[lanes[x][y] ^ D[x] for y in range(5)] for x in range(5)]
-        # ρ and π
+        # ro and pi
         (x, y) = (1, 0)
         current = lanes[x][y]
         for t in range(ROUND_COUNT):
             (x, y) = (y, (2 * x + 3 * y) % 5)
             (current, lanes[x][y]) = (lanes[x][y], rotateLeft(current, (t + 1) * (t + 2) // 2))
-        # χ
+        # chi
         for y in range(5):
             T = [lanes[x][y] for x in range(5)]
             for x in range(5):
                 lanes[x][y] = T[x] ^ ((~T[(x + 1) % 5]) & T[(x + 2) % 5])
-        # ι
+        # iota
         for j in range(7):
             rc = ((rc << 1) ^ ((rc >> 7) * 0x71)) % 256
             if (rc & 2):
